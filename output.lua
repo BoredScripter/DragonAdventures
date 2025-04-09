@@ -24,6 +24,14 @@ return function (self, value)
 end
 end
 
+__modules["controller.AutosellMobLoot"] = function()
+return function (self, value)
+    _G.AutosellMobLoot = value
+
+    __require("model.features.AutosellMobLoot")()
+end
+end
+
 __modules["controller.Godmode"] = function()
 return function (self, value)
     _G.Godmode = value
@@ -56,6 +64,23 @@ return function ()
 end
 end
 
+__modules["model.features.AutosellMobLoot"] = function()
+local mobLootToSell = {"Meat", "Bacon", "Ashes"}
+
+return function ()
+    while _G.AutosellMobLoot do
+        for _, lootStr in pairs(mobLootToSell) do
+            game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote:FireServer({
+                ItemName = lootStr,
+                Amount = 100000,
+            })
+        end
+         
+        task.wait(10)
+    end
+end
+end
+
 __modules["model.features.Godmode"] = function()
 
 local loaded = false;
@@ -85,9 +110,12 @@ end
 end
 
 __modules["model.Globals"] = function()
-_G.AutomobFarm = _G.AutomobFarm or false
-_G.Godmode = _G.Godmode or false
+_G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
+_G.Godmode = _G.Godmode or _G.AutoExec or false
+_G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
 
+-- make sure game is loaded maybe later add load check
+if _G.AutoExec then task.wait(10) end
 end
 
 __modules["model.utils.DragonHandler"] = function()
@@ -181,6 +209,12 @@ return function ()
     Window:Checkbox({
         Value = _G.Godmode,
         Label = "Godmode",
+        Callback = CallController
+    })
+
+    Window:Checkbox({
+        Value = _G.Godmode,
+        Label = "AutosellMobLoot",
         Callback = CallController
     })
 

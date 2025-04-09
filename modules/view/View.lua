@@ -36,5 +36,11 @@ return function ()
         Callback = CallController
     })
 
+    Window:Checkbox({
+        Value = _G.Godmode,
+        Label = "AutosellMobLoot",
+        Callback = CallController
+    })
+
 end
 

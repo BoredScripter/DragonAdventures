@@ -1,5 +1,14 @@
 {
     "Lua.diagnostics.globals": [
         "workspace"
+    ],
+    "Lua.diagnostics.disable": [
+        "undefined-global",
+        "unknown-global",
+        "unknown-type",
+        "unknown-symbol",
+        "type-check",
+        "type-error",
+        "undefined-field"
     ]
 }
