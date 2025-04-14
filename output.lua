@@ -67,13 +67,33 @@ end
 __modules["model.features.AutosellMobLoot"] = function()
 local mobLootToSell = {"Meat", "Bacon", "Ashes"}
 
+-- Modules
+local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
+
+local Sonar = require(game.ReplicatedStorage:WaitForChild('Sonar'))
+local PlayerWrapper = Sonar('PlayerWrapper')
+local Client = PlayerWrapper.GetClient()
+
+local function GetAmount(item)
+    return Client.PlayerData.Resources[item].Value
+end
+
 return function ()
     while _G.AutosellMobLoot do
+        local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
         for _, lootStr in pairs(mobLootToSell) do
-            game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote:FireServer({
-                ItemName = lootStr,
-                Amount = 100000,
-            })
+            
+            local amount = GetAmount(lootStr)
+            if amount <= 0 then continue end
+
+            RemoteMiddleman.RequestFire(remote, true, function()
+                remote:FireServer({
+                    ItemName = lootStr,
+                    Amount = amount,
+                })
+            end)
+            print("Selling", lootStr, "Amount:", amount)
+
         end
          
         task.wait(10)
@@ -112,7 +132,7 @@ end
 __modules["model.Globals"] = function()
 _G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
 _G.Godmode = _G.Godmode or _G.AutoExec or false
-_G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
+_G.AutosellMobLoot = _G.AutosellMobLoot or false
 
 -- make sure game is loaded maybe later add load check
 if _G.AutoExec then task.wait(10) end
@@ -120,6 +140,9 @@ end
 
 __modules["model.utils.DragonHandler"] = function()
 local DragonHandler = {}
+
+-- Modules
+local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
 
 local function safeGet(child, name)
     local success, result = pcall(function()
@@ -139,7 +162,9 @@ function DragonHandler.FireBreath(dragon, targetMob)
     local soundRemote = safeGet(remotes, "PlaySoundRemote")
     if not soundRemote then return end
 
-    soundRemote:FireServer("Breath", "Mobs", targetMob)
+    RemoteMiddleman.RequestFire(soundRemote, false, function()
+        soundRemote:FireServer("Breath", "Mobs", targetMob)
+    end)
 end
 
 function DragonHandler.Bite(dragon, targetMob)
@@ -149,7 +174,9 @@ function DragonHandler.Bite(dragon, targetMob)
     local soundRemote = safeGet(remotes, "PlaySoundRemote")
     if not soundRemote then return end
 
-    soundRemote:FireServer("Bite", {{"Mobs", targetMob}})
+    RemoteMiddleman.RequestFire(soundRemote, false, function()
+        soundRemote:FireServer("Bite", {{"Mobs", targetMob}})
+    end)
 end
 
 return DragonHandler
@@ -171,6 +198,54 @@ function MonsterHandler.FindMob()
 end
 
 return MonsterHandler
+end
+
+__modules["model.utils.RemoteMiddleman"] = function()
+local RemoteMiddleman = {}
+
+local cooldownTime = 0
+local debounce = false
+local queueList = {}
+
+-- Internal function to process the next item in the queue
+local function processQueue()
+    if debounce or #queueList == 0 then
+        return
+    end
+
+    debounce = true
+    local nextCallback = table.remove(queueList, 1)
+    task.spawn(nextCallback)
+
+    task.delay(cooldownTime, function()
+        debounce = false
+        processQueue() -- Automatically process the next item
+    end)
+end
+
+function RemoteMiddleman.RequestFire(remote, queue, callback)
+    if not debounce then
+
+        debounce = true
+        task.spawn(callback)
+
+        task.delay(cooldownTime, function()
+            debounce = false
+            processQueue()
+        end)
+
+        return true
+    elseif queue then
+        print("Request denied but is queable so adding to queulist", remote)
+        table.insert(queueList, callback)
+        return true
+    else
+        return false
+    end
+end
+
+return RemoteMiddleman
+
 end
 
 __modules["view.View"] = function()
