@@ -32,33 +32,31 @@ end
 
 return function ()
     while _G.AutosellMobLoot do
-        if shouldSell() then
-            CU.UseChar(function(char)
-                local root = char.HumanoidRootPart
+        CU.UseChar(function(char)
+            local root = char.HumanoidRootPart
 
-                RT.Request("Sell mob loot", 10, function()
-                    -- Tp char to CFrame.new(1,1,1)
-                    root.CFrame = sellPart.CFrame
-                    task.wait(1)
+            RT.Request("Sell mob loot", 10, function()
+                -- Tp char to CFrame.new(1,1,1)
+                root.CFrame = sellPart.CFrame
+                task.wait(1)
 
-                    local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
-                    for _, lootStr in pairs(mobLootToSell) do
-                        
-                        local amount = GetAmount(lootStr)
-                        if amount <= 0 then continue end
-            
-                        RemoteMiddleman.RequestFire(remote, true, function()
-                            remote:FireServer({
-                                ItemName = lootStr,
-                                Amount = amount,
-                            })
-                        end)
-                        print("Selling", lootStr, "Amount:", amount)
-                        task.wait(.5)
-                    end
-                end)
+                local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
+                for _, lootStr in pairs(mobLootToSell) do
+                    
+                    local amount = GetAmount(lootStr)
+                    if amount <= 0 then continue end
+        
+                    RemoteMiddleman.RequestFire(remote, true, function()
+                        remote:FireServer({
+                            ItemName = lootStr,
+                            Amount = amount,
+                        })
+                    end)
+                    print("Selling", lootStr, "Amount:", amount)
+                    task.wait(.5)
+                end
             end)
-        end
+        end)
 
         task.wait(10)
     end
