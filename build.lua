@@ -2,7 +2,7 @@ local module_dir = "modules"
 local entry_point = "main.lua"
 
 -- Output both in Zenith workspace and in root project folder
-local output_file_workspace = "C:/Users/CusFo/AppData/Roaming/Zenith/Workspace/output.lua"
+local output_file_workspace = "C:/Users/CusFo/AppData/Local/ui/workspace/output.lua"
 local output_file_root = "output.lua"
 
 local lfs = require("lfs") -- LuaFileSystem (or write your own dir reader if you want it pure)
@@ -44,7 +44,13 @@ local function generate_output()
     -- Inject fake require system
     table.insert(buffer, [[
 local __modules = {}
+local __loaded = {} -- cache for already required modules
+
 local __require = function(name)
+    if __loaded[name] then
+        return __loaded[name]
+    end
+
     local mod = __modules[name]
     if mod then
         local ok, result = xpcall(mod, function(err)
@@ -53,6 +59,7 @@ local __require = function(name)
         if not ok then
             error(result, 2)
         end
+        __loaded[name] = result
         return result
     else
         error("Module '" .. name .. "' not found.", 2)

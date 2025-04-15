@@ -1,7 +1,13 @@
 -- Auto-generated script
 
 local __modules = {}
+local __loaded = {} -- cache for already required modules
+
 local __require = function(name)
+    if __loaded[name] then
+        return __loaded[name]
+    end
+
     local mod = __modules[name]
     if mod then
         local ok, result = xpcall(mod, function(err)
@@ -10,6 +16,7 @@ local __require = function(name)
         if not ok then
             error(result, 2)
         end
+        __loaded[name] = result
         return result
     else
         error("Module '" .. name .. "' not found.", 2)
@@ -43,21 +50,26 @@ end
 __modules["model.features.AutomobFarm"] = function()
 
 return function ()
-    local plr = game.Players.LocalPlayer
-    local char = plr.Character
-    local root = char.PrimaryPart
-
     local DH = __require('model.utils.DragonHandler')
     local MH = __require('model.utils.MonsterHandler')
+    local RT = __require('model.utils.RequestTask')
+    local CU = __require('model.utils.CharUtils')
 
     while _G.AutomobFarm do
         local mob = MH.FindMob()
         if mob then
-            root.CFrame = mob.CFrame
-            for _, dragon in pairs(char.Dragons:GetChildren()) do
-                DH.FireBreath(dragon, mob)
-                DH.Bite(dragon, mob)
-            end
+            CU.UseChar(function(char)
+                local root = char.HumanoidRootPart
+
+                RT.Request("TP To Mob and Damage", 1, function()
+                    root.CFrame = mob.CFrame
+                    for _, dragon in pairs(char.Dragons:GetChildren()) do
+                        DH.FireBreath(dragon, mob)
+                        DH.Bite(dragon, mob)
+                    end
+                end)
+            end)
+
         end
         task.wait()
     end 
@@ -69,33 +81,64 @@ local mobLootToSell = {"Meat", "Bacon", "Ashes"}
 
 -- Modules
 local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
+local RT = __require('model.utils.RequestTask')
+local CU = __require('model.utils.CharUtils')
 
+local old = getthreadidentity()
+print("Old thread identity:", old)
+setthreadidentity(2) -- 2 = LocalScript context
 local Sonar = require(game.ReplicatedStorage:WaitForChild('Sonar'))
 local PlayerWrapper = Sonar('PlayerWrapper')
 local Client = PlayerWrapper.GetClient()
+setthreadidentity(old)
+
+local sellPart = workspace:WaitForChild("Interactions").GeneralStore.BillboardPart
 
 local function GetAmount(item)
     return Client.PlayerData.Resources[item].Value
 end
 
+local function shouldSell()
+    local sell = false
+    for _, lootStr in pairs(mobLootToSell) do
+        if GetAmount(lootStr) >= 10000 then
+            return true
+        end
+    end
+
+    return sell
+end
+
 return function ()
     while _G.AutosellMobLoot do
-        local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
-        for _, lootStr in pairs(mobLootToSell) do
+        if shouldSell() then
+            CU.UseChar(function(char)
+                local root = char.HumanoidRootPart
+
+                RT.Request("Sell mob loot", 10, function()
+                    -- Tp char to CFrame.new(1,1,1)
+                    root.CFrame = sellPart.CFrame
+                    task.wait(1)
+
+                    local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
+                    for _, lootStr in pairs(mobLootToSell) do
+                        
+                        local amount = GetAmount(lootStr)
+                        if amount <= 0 then continue end
             
-            local amount = GetAmount(lootStr)
-            if amount <= 0 then continue end
-
-            RemoteMiddleman.RequestFire(remote, true, function()
-                remote:FireServer({
-                    ItemName = lootStr,
-                    Amount = amount,
-                })
+                        RemoteMiddleman.RequestFire(remote, true, function()
+                            remote:FireServer({
+                                ItemName = lootStr,
+                                Amount = amount,
+                            })
+                        end)
+                        print("Selling", lootStr, "Amount:", amount)
+                        task.wait(.5)
+                    end
+                end)
             end)
-            print("Selling", lootStr, "Amount:", amount)
-
         end
-         
+
         task.wait(10)
     end
 end
@@ -136,6 +179,43 @@ _G.AutosellMobLoot = _G.AutosellMobLoot or false
 
 -- make sure game is loaded maybe later add load check
 if _G.AutoExec then task.wait(10) end
+end
+
+__modules["model.utils.CharUtils"] = function()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local CharUtil = {}
+
+function CharUtil.UseChar(callback)
+    if not LocalPlayer then
+        warn("[CharUtil] LocalPlayer not available.")
+        return
+    end
+
+    local character = LocalPlayer.Character
+    if not character then
+        warn("[CharUtil] Character not loaded.")
+        return
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then
+        warn("[CharUtil] Character is dead or missing Humanoid.")
+        return
+    end
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then
+        warn("[CharUtil] Missing HumanoidRootPart.")
+        return
+    end
+
+    callback(character)
+end
+
+return CharUtil
+
 end
 
 __modules["model.utils.DragonHandler"] = function()
@@ -245,6 +325,63 @@ function RemoteMiddleman.RequestFire(remote, queue, callback)
 end
 
 return RemoteMiddleman
+
+end
+
+__modules["model.utils.RequestTask"] = function()
+local RequestTask = {}
+
+local curTask = nil
+local taskIdCounter = 0
+local completedTasks = {}
+
+-- Task factory
+local function CreateTask(name, priority)
+    taskIdCounter += 1
+    return {
+        id = taskIdCounter,
+        name = name,
+        priority = priority,
+        abandoned = false
+    }
+end
+
+function RequestTask.Request(name, priority, callback)
+    if not curTask or priority > curTask.priority then
+        if curTask then
+            curTask.abandoned = true
+        end
+
+        local newTask = CreateTask(name, priority)
+
+        curTask = newTask
+
+        task.spawn(function()
+            -- new task is also the self task under here since curTask could have been changed in runtime while under running
+            local success, err = xpcall(callback, debug.traceback)
+
+            if success and not newTask.abandoned and curTask.id == newTask.id then
+                completedTasks[#completedTasks + 1] = newTask.name
+                curTask = nil
+            elseif not success then
+                warn("[RequestTask] Error in task '" .. newTask.name .. "': " .. err)
+                if curTask and curTask.id == newTask.id then
+                    curTask = nil
+                end
+            end
+        end)
+    end
+end
+
+function RequestTask.GetCompletedTasks()
+    return completedTasks
+end
+
+function RequestTask.GetCurrentTask()
+    return curTask
+end
+
+return RequestTask
 
 end
 
