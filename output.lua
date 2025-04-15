@@ -111,33 +111,34 @@ end
 
 return function ()
     while _G.AutosellMobLoot do
-        print("should sell")
-        CU.UseChar(function(char)
-            local root = char.HumanoidRootPart
+        if shouldSell() then
+            CU.UseChar(function(char)
+                local root = char.HumanoidRootPart
 
-            RT.Request("Sell mob loot", 10, function()
-                -- Tp char to CFrame.new(1,1,1)
-                root.CFrame = sellPart.CFrame
-                task.wait(1)
+                RT.Request("Sell mob loot", 10, function()
+                    -- Tp char to CFrame.new(1,1,1)
+                    root.CFrame = sellPart.CFrame
+                    task.wait(0.5)
 
-                local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
-                for _, lootStr in pairs(mobLootToSell) do
-                    
-                    local amount = GetAmount(lootStr)
-                    if amount <= 0 then continue end
-        
-                    RemoteMiddleman.RequestFire(remote, true, function()
-                        remote:FireServer({
-                            ItemName = lootStr,
-                            Amount = amount,
-                        })
-                    end)
-                    print("Selling", lootStr, "Amount:", amount)
-                    task.wait(.5)
-                end
+                    local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
+                    for _, lootStr in pairs(mobLootToSell) do
+                        
+                        local amount = GetAmount(lootStr)
+                        if amount <= 0 then continue end
+            
+                        RemoteMiddleman.RequestFire(remote, true, function()
+                            remote:FireServer({
+                                ItemName = lootStr,
+                                Amount = amount,
+                            })
+                        end)
+                        print("Selling", lootStr, "Amount:", amount)
+                    end
+                    task.wait(1)
+                end)
             end)
-        end)
-
+        end
+        
         task.wait(10)
     end
 end
@@ -174,7 +175,7 @@ end
 __modules["model.Globals"] = function()
 _G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
 _G.Godmode = _G.Godmode or _G.AutoExec or false
-_G.AutosellMobLoot = _G.AutosellMobLoot or false
+_G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
 
 -- make sure game is loaded maybe later add load check
 if _G.AutoExec then task.wait(10) end
