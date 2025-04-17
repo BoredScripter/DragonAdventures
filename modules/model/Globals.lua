@@ -2,10 +2,13 @@ _G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
 _G.Godmode = _G.Godmode or _G.AutoExec or false
 _G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
 
--- make sure game is loaded maybe later add load check
+-- make sure game is loaded
 if _G.AutoExec then 
-    task.wait(10) 
+    if not game:IsLoaded() then
+        game.Loaded:Wait()
+    end
 end
+
 
 -- setup stuff
 local old = getthreadidentity()
