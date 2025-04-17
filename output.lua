@@ -180,10 +180,13 @@ _G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
 _G.Godmode = _G.Godmode or _G.AutoExec or false
 _G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
 
--- make sure game is loaded maybe later add load check
+-- make sure game is loaded
 if _G.AutoExec then 
-    task.wait(10) 
+    if not game:IsLoaded() then
+        game.Loaded:Wait()
+    end
 end
+
 
 -- setup stuff
 local old = getthreadidentity()
@@ -273,6 +276,8 @@ local DragonHandler = {}
 -- Modules
 local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
 
+local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+
 local function safeGet(child, name)
     local success, result = pcall(function()
         return child:FindFirstChild(name)
@@ -306,6 +311,10 @@ function DragonHandler.Bite(dragon, targetMob)
     RemoteMiddleman.RequestFire(soundRemote, false, function()
         soundRemote:FireServer("Bite", {{"Mobs", targetMob}})
     end)
+end
+
+function DragonHandler.EquipDragon()
+    Remotes:WaitForChild("EquipDragonRemote"):InvokeServer("1")    
 end
 
 return DragonHandler
@@ -469,7 +478,7 @@ return function ()
 	})
 
 	local Window = ReGui:Window({
-		Title = 'Nigga his is crazy',
+		Title = 'Nigga this is crazy',
 		Size = UDim2.fromOffset(500, 500),
 	})
 
