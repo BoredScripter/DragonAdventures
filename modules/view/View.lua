@@ -1,11 +1,6 @@
 -- Weak table acts like external storage for _ControllerKey
 local controllerMap = setmetatable({}, { __mode = "k" })
 
-local function bindController(component, controllerKey)
-	controllerMap[component] = controllerKey
-	return component
-end
-
 local function CallController(self, value)
 	local key = controllerMap[self]
 	if not key then
@@ -15,6 +10,12 @@ local function CallController(self, value)
 	spawn(function()
 		__require("controller." .. key)(self, value)
 	end)
+end
+
+local function bindController(component, controllerKey)
+	controllerMap[component] = controllerKey
+	CallController(component, _G[controllerKey])
+	return component
 end
 
 return function ()
