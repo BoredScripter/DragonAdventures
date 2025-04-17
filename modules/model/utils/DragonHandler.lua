@@ -3,6 +3,8 @@ local DragonHandler = {}
 -- Modules
 local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
 
+local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+
 local function safeGet(child, name)
     local success, result = pcall(function()
         return child:FindFirstChild(name)
@@ -36,6 +38,10 @@ function DragonHandler.Bite(dragon, targetMob)
     RemoteMiddleman.RequestFire(soundRemote, false, function()
         soundRemote:FireServer("Bite", {{"Mobs", targetMob}})
     end)
+end
+
+function DragonHandler.EquipDragon()
+    Remotes:WaitForChild("EquipDragonRemote"):InvokeServer("1")    
 end
 
 return DragonHandler

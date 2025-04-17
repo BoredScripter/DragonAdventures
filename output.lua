@@ -39,6 +39,14 @@ return function (self, value)
 end
 end
 
+__modules["controller.CompleteTutorial"] = function()
+return function (self)
+    if _G.Client.InTutorial then
+        __require("model.utils.CompleteTutorial")()
+    end
+end
+end
+
 __modules["controller.Godmode"] = function()
 return function (self, value)
     _G.Godmode = value
@@ -84,13 +92,8 @@ local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
 local RT = __require('model.utils.RequestTask')
 local CU = __require('model.utils.CharUtils')
 
-local old = getthreadidentity()
-print("Old thread identity:", old)
-setthreadidentity(2) -- 2 = LocalScript context
-local Sonar = require(game.ReplicatedStorage:WaitForChild('Sonar'))
-local PlayerWrapper = Sonar('PlayerWrapper')
-local Client = PlayerWrapper.GetClient()
-setthreadidentity(old)
+
+local Client = _G.Client
 
 local sellPart = workspace:WaitForChild("Interactions").GeneralStore.BillboardPart
 
@@ -178,7 +181,22 @@ _G.Godmode = _G.Godmode or _G.AutoExec or false
 _G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
 
 -- make sure game is loaded maybe later add load check
-if _G.AutoExec then task.wait(10) end
+if _G.AutoExec then 
+    task.wait(10) 
+end
+
+-- setup stuff
+local old = getthreadidentity()
+setthreadidentity(2) -- 2 = LocalScript context
+local Sonar = require(game.ReplicatedStorage:WaitForChild('Sonar'))
+local PlayerWrapper = Sonar('PlayerWrapper')
+_G.Client = PlayerWrapper.GetClient()
+setthreadidentity(old)
+
+-- if auto exec on and havnt completed tutorial then complete it
+if _G.AutoExec and _G.Client.InTutorial then
+    __require("model.utils.CompleteTutorial")()
+end
 end
 
 __modules["model.utils.CharUtils"] = function()
@@ -215,6 +233,37 @@ function CharUtil.UseChar(callback)
 end
 
 return CharUtil
+
+end
+
+__modules["model.utils.CompleteTutorial"] = function()
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local function fire(stage) Remotes.PostTutorialStageRemote:FireServer(stage) end
+local function set(stage) Remotes.SetTutorialStageRemote:InvokeServer(stage) end
+
+return function()
+    -- Tutorial progression
+    fire("DragonControls")
+    set("FindingEggs")
+    fire("InteractWithEgg")
+    set("HatchingEggs")
+    fire("MakeDragonFly")
+    fire("NavigatedToPlot")
+    fire("PlacedTutorialEgg")
+    fire("HatchedTutorialEgg")
+    fire("EquippedBabyDragon")
+    fire("TouchedTutorialExit")
+    fire("LeftPlot")
+    set("Complete")
+    print("[Tutorial] Done on server")
+
+    -- Reload game
+    game:GetService("TeleportService"):Teleport(game.PlaceId, Players.LocalPlayer)
+end
+
 
 end
 
@@ -386,52 +435,75 @@ return RequestTask
 end
 
 __modules["view.View"] = function()
+-- Weak table acts like external storage for _ControllerKey
+local controllerMap = setmetatable({}, { __mode = "k" })
+
+local function bindController(component, controllerKey)
+	controllerMap[component] = controllerKey
+	return component
+end
+
 local function CallController(self, value)
-    spawn(function()
-        __require("controller."..self.Label)(self, value)
-    end)
+	local key = controllerMap[self]
+	if not key then
+		warn("[Controller] No controller key bound for:", self.Name)
+		return
+	end
+	spawn(function()
+		__require("controller." .. key)(self, value)
+	end)
 end
 
 return function ()
-    local InsertService = game:GetService('InsertService')
+	local InsertService = game:GetService('InsertService')
 
-    local ReGui = loadstring(
-        game:HttpGet(
-            'https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua'
-        )
-    )()
-    local PrefabsId = 'rbxassetid://' .. ReGui.PrefabsId
+	local ReGui = loadstring(
+		game:HttpGet(
+			'https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua'
+		)
+	)()
+	local PrefabsId = 'rbxassetid://' .. ReGui.PrefabsId
 
-    --// Declare the Prefabs asset
-    ReGui:Init({
-        Prefabs = InsertService:LoadLocalAsset(PrefabsId),
+	ReGui:Init({
+		Prefabs = InsertService:LoadLocalAsset(PrefabsId),
+	})
+
+	local Window = ReGui:Window({
+		Title = 'Nigga his is crazy',
+		Size = UDim2.fromOffset(500, 500),
+	})
+
+	bindController(Window:Checkbox({
+		Value = _G.AutomobFarm,
+		Label = "Automob Farm",
+		Callback = CallController
+	}), "AutomobFarm")
+
+	bindController(Window:Checkbox({
+		Value = _G.Godmode,
+		Label = "Godmode",
+		Callback = CallController
+	}), "Godmode")
+
+	bindController(Window:Checkbox({
+		Value = _G.AutosellMobLoot,
+		Label = "Autosell MobLoot",
+		Callback = CallController
+	}), "AutosellMobLoot")
+
+    Window:Label({
+        Text = ""
     })
 
-    local Window = ReGui:Window({
-        Title = 'Nigga this is crazy',
-        Size = UDim2.fromOffset(500, 500),
-    })
+	bindController(Window:Button({
+		Text = "Complete Tutorial",
+		Callback = CallController
+	}), "CompleteTutorial")
 
-    Window:Checkbox({
-        Value = _G.AutomobFarm,
-        Label = "AutomobFarm",
-        Callback = CallController
+    Window:Label({
+        Text = "This will reload the game..."
     })
-
-    Window:Checkbox({
-        Value = _G.Godmode,
-        Label = "Godmode",
-        Callback = CallController
-    })
-
-    Window:Checkbox({
-        Value = _G.AutosellMobLoot,
-        Label = "AutosellMobLoot",
-        Callback = CallController
-    })
-
 end
-
 
 end
 

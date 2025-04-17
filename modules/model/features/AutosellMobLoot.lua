@@ -5,13 +5,8 @@ local RemoteMiddleman = __require("model.utils.RemoteMiddleman")
 local RT = __require('model.utils.RequestTask')
 local CU = __require('model.utils.CharUtils')
 
-local old = getthreadidentity()
-print("Old thread identity:", old)
-setthreadidentity(2) -- 2 = LocalScript context
-local Sonar = require(game.ReplicatedStorage:WaitForChild('Sonar'))
-local PlayerWrapper = Sonar('PlayerWrapper')
-local Client = PlayerWrapper.GetClient()
-setthreadidentity(old)
+
+local Client = _G.Client
 
 local sellPart = workspace:WaitForChild("Interactions").GeneralStore.BillboardPart
 
