@@ -146,6 +146,7 @@ local assetToName = {
 }
 
 local RT = __require('model.utils.RequestTask')
+local CU = __require('model.utils.CharUtils')
 
 local Client = _G.Client
 local CurrentEggs = Client.SettingsFolder:WaitForChild('CurrentEggs')
@@ -202,10 +203,12 @@ return function ()
 
         RT.Request("Collect egg", 5, function()
             -- root.CFrame = nestValue + Vector3.new(0, 5, 0)
-            char:PivotTo(nestValue + Vector3.new(0, 5, 0))
-            task.wait(.1)
-            game.ReplicatedStorage.Remotes.SetCollectEggRemote:InvokeServer(tostring(eggValue))
-            game.ReplicatedStorage.Remotes.CollectEggRemote:InvokeServer(tostring(eggValue))
+            CU.UseChar(true, function(char)
+                char:PivotTo(nestValue + Vector3.new(0, 5, 0))
+                task.wait(.1)
+                game.ReplicatedStorage.Remotes.SetCollectEggRemote:InvokeServer(tostring(eggValue))
+                game.ReplicatedStorage.Remotes.CollectEggRemote:InvokeServer(tostring(eggValue))
+            end)
         end)
         task.wait(.1)
     end
