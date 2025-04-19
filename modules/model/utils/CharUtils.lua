@@ -3,7 +3,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local CharUtil = {}
 
-function CharUtil.UseChar(callback)
+function CharUtil.UseChar(usedForTP, callback)
     if not LocalPlayer then
         warn("[CharUtil] LocalPlayer not available.")
         return
@@ -27,7 +27,20 @@ function CharUtil.UseChar(callback)
         return
     end
 
+    if usedForTP then
+        root.Anchored = true
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end
+
     callback(character)
+
+    if usedForTP then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        root.Anchored = false
+
+    end
 end
 
 return CharUtil

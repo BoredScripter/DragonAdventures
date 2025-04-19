@@ -23,6 +23,30 @@ local __require = function(name)
     end
 end
 
+__modules["controller.AutoCollectCoins"] = function()
+return function (self, value)
+    _G.AutoCollectCoins = value
+
+    __require("model.features.AutoCollectCoins")()
+end
+end
+
+__modules["controller.AutoCollectEggs"] = function()
+return function (self, value)
+    _G.AutoCollectEggs = value
+
+    __require("model.features.AutoCollectEggs")()
+end
+end
+
+__modules["controller.AutoFarmResource"] = function()
+return function (self, value)
+    _G.AutoFarmResource = value
+
+    __require("model.features.AutoFarmResource")()
+end
+end
+
 __modules["controller.AutomobFarm"] = function()
 return function (self, value)
     _G.AutomobFarm = value
@@ -55,6 +79,203 @@ return function (self, value)
 end
 end
 
+__modules["controller.LootTreasureChests"] = function()
+return function (self, value)
+    _G.LootTreasureChests = value
+
+    __require("model.features.LootTreasureChests")()
+end
+end
+
+__modules["model.features.AutoCollectCoins"] = function()
+
+local RT = __require("model.utils.RequestTask")
+local CU = __require("model.utils.CharUtils")
+
+local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+local CurrencyNodes = workspace:WaitForChild("Interactions"):WaitForChild("Nodes"):WaitForChild("CurrencyNodes")
+
+local function isClose(posA, posB, threshold)
+    return (posA - posB).Magnitude <= threshold
+end
+
+local function findTheServerCoin(coin)
+    for _, serverCoin in pairs(CurrencyNodes:GetChildren()) do
+        if not serverCoin:IsA("Folder") and serverCoin.Name == coin.Name then
+            if isClose(serverCoin.Position, coin.Position, 10) then
+                return serverCoin
+            end
+        end
+    end
+end
+
+local function findCoin()
+    for _, coin in pairs(CurrencyNodes.Spawned:GetChildren()) do
+        if coin.Name == "MegaCoins" then
+            return findTheServerCoin(coin)
+        end
+    end
+end
+
+return function ()
+    while _G.AutoCollectCoins do
+        local coin = findCoin()
+        if not coin then
+            task.wait(1)
+            continue
+        end
+
+        RT.Request("Loot Coin", 5, function()
+            CU.UseChar(true, function(char)
+                char:PivotTo(coin.CFrame)
+                task.wait(.1)
+                
+                Remotes.GetCurrencyNodeRemote:FireServer(coin)
+                task.wait(.5)
+            end)
+        end)
+        task.wait()
+    end
+end
+end
+
+__modules["model.features.AutoCollectEggs"] = function()
+
+local assetToName = {
+    ["rbxassetid://6860848612"] = "RedEggBoy"
+}
+
+local RT = __require('model.utils.RequestTask')
+
+local Client = _G.Client
+local CurrentEggs = Client.SettingsFolder:WaitForChild('CurrentEggs')
+local eggs = workspace.Interactions.Nodes.Eggs
+local root = game.Players.LocalPlayer.Character.PrimaryPart
+
+local function roundVector3(v)
+    return Vector3.new(
+        math.round(v.X),
+        math.round(v.Y),
+        math.round(v.Z))
+end
+
+function InvSpaceForEgg(nestValue)
+    for _, model in pairs(eggs:WaitForChild("ActiveNodes"):GetChildren()) do
+        if roundVector3(model.Base.CFrame.Position) == roundVector3(nestValue.Position) then
+            if model:FindFirstChild("EggModel") then
+                local eggName = assetToName[model.EggModel.Egg.MeshId]
+                if not eggName then
+                    warn("[EGG NOT MAPPED] MeshID IS NOT mapped to an egg string... CANT CHECK INV SPACE FOR THE EGG THEN | meshid:", model.EggModel.Egg.MeshId, "path:", model.EggModel.Egg:GetFullName())
+                    return false
+
+                end
+
+                local eggValue = Client.PlayerData.Eggs:FindFirstChild(eggName)
+                if eggValue.Value >= 10 then
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
+function findEgg()
+	for i, EggValue in pairs(CurrentEggs:GetChildren()) do
+        if EggValue.Name == "ClueEgg" then continue end
+
+        local nestValue = eggs:FindFirstChild(tostring(EggValue.Value)).Nest.Value
+	    if InvSpaceForEgg(nestValue) then
+		    return nestValue, EggValue.Value
+        end
+	end
+    return
+end
+
+return function ()
+    while _G.AutoCollectEggs do
+        local nestValue, eggValue = findEgg()
+        if not nestValue then
+            task.wait(1)
+            continue
+        end
+
+        RT.Request("Collect egg", 5, function()
+            -- root.CFrame = nestValue + Vector3.new(0, 5, 0)
+            char:PivotTo(nestValue + Vector3.new(0, 5, 0))
+            task.wait(.1)
+            game.ReplicatedStorage.Remotes.SetCollectEggRemote:InvokeServer(tostring(eggValue))
+            game.ReplicatedStorage.Remotes.CollectEggRemote:InvokeServer(tostring(eggValue))
+        end)
+        task.wait(.1)
+    end
+end
+end
+
+__modules["model.features.AutoFarmResource"] = function()
+local DH = __require('model.utils.DragonHandler')
+local RT = __require("model.utils.RequestTask")
+local CU = __require("model.utils.CharUtils")
+
+local resources = workspace:WaitForChild("Interactions"):WaitForChild("Nodes"):WaitForChild("Resources")
+local plr = game.Players.LocalPlayer
+
+local function findResourceNode()
+	for i,v in pairs(resources:GetChildren()) do
+		if v.Name == "LargeResourceNode" and v.BillboardPart.Health.Value > 0 then
+			return v.BillboardPart
+		end
+	end
+end
+
+return function()
+	local toucherConnection
+	if _G.AutoFarmResource then
+		-- setup auto item pickup
+		toucherConnection = workspace.CurrentCamera.ChildAdded:Connect(function(child)
+			if string.match(child.Name, "Resource") == "Resource" then
+				print(child.Name, "VALIDs! ~~~!")
+                while child and child.PrimaryPart do
+                    pcall(function()
+                        firetouchinterest(child.PrimaryPart, plr.Character.Head, 0)
+                        task.wait(.1)
+                        firetouchinterest(child.PrimaryPart, plr.Character.Head, 1)
+                    end)
+                end
+			end
+		end)
+
+	end
+
+	while _G.AutoFarmResource do
+        local target = findResourceNode()
+		if not target then
+			task.wait(1)
+			continue
+		end
+
+		RT.Request("TP To Resource and Damage", 2, function()
+			CU.UseChar(true, function(char)
+				char:PivotTo(target.CFrame)
+				for _, dragon in pairs(char.Dragons:GetChildren()) do
+					DH.FireBreath(dragon, target, "Destructibles")
+					DH.Bite(dragon, target, "Destructibles")
+				end
+			end)
+		end)
+        
+        task.wait()
+    end
+
+	-- disconnect item toucher
+	if toucherConnection then
+		toucherConnection:Disconnect()
+	end
+end
+
+
+end
+
 __modules["model.features.AutomobFarm"] = function()
 
 return function ()
@@ -65,20 +286,22 @@ return function ()
 
     while _G.AutomobFarm do
         local mob = MH.FindMob()
-        if mob then
-            CU.UseChar(function(char)
-                local root = char.HumanoidRootPart
-
-                RT.Request("TP To Mob and Damage", 1, function()
-                    root.CFrame = mob.CFrame
-                    for _, dragon in pairs(char.Dragons:GetChildren()) do
-                        DH.FireBreath(dragon, mob)
-                        DH.Bite(dragon, mob)
-                    end
-                end)
-            end)
-
+        if not mob then
+            task.wait(1)
+            continue;
         end
+
+
+        RT.Request("TP To Mob and Damage", 1, function()
+            CU.UseChar(true, function(char)
+                char:PivotTo(mob.CFrame)
+                for _, dragon in pairs(char.Dragons:GetChildren()) do
+                    DH.FireBreath(dragon, mob, "Mobs")
+                    DH.Bite(dragon, mob, "Mobs")
+                end
+            end)
+        end)
+        
         task.wait()
     end 
 end
@@ -95,7 +318,7 @@ local CU = __require('model.utils.CharUtils')
 
 local Client = _G.Client
 
-local sellPart = workspace:WaitForChild("Interactions").GeneralStore.BillboardPart
+local sellPart = workspace:WaitForChild("Interactions").GeneralStore:WaitForChild("BillboardPart")
 
 local function GetAmount(item)
     return Client.PlayerData.Resources[item].Value
@@ -115,12 +338,12 @@ end
 return function ()
     while _G.AutosellMobLoot do
         if shouldSell() then
-            CU.UseChar(function(char)
-                local root = char.HumanoidRootPart
-
-                RT.Request("Sell mob loot", 10, function()
-                    -- Tp char to CFrame.new(1,1,1)
-                    root.CFrame = sellPart.CFrame
+            RT.Request("Sell mob loot", 10, function()
+                -- Tp char to CFrame.new(1,1,1)
+                CU.UseChar(true, function(char)
+                    local root = char.HumanoidRootPart
+                    -- root.CFrame = sellPart.CFrame
+                    char:PivotTo(sellPart.CFrame)
                     task.wait(0.5)
 
                     local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
@@ -140,6 +363,8 @@ return function ()
                     task.wait(1)
                 end)
             end)
+
+
         end
         
         task.wait(10)
@@ -175,10 +400,55 @@ return function ()
 end
 end
 
+__modules["model.features.LootTreasureChests"] = function()
+local treasureF = workspace.Interactions.Nodes.Treasure
+
+local RT = __require("model.utils.RequestTask")
+local CU = __require("model.utils.CharUtils")
+
+function findTreasureChest()
+    for i,v in pairs(treasureF:GetChildren()) do
+        local model = v:FindFirstChildWhichIsA("Model")
+        if model and not model.PrimaryPart.Dead.Value then
+            return model
+        end
+    end
+end 
+
+-- test
+local root = game.Players.LocalPlayer.Character.PrimaryPart
+
+return function()
+    while _G.LootTreasureChests do
+        local curChest = findTreasureChest()
+        if not curChest then
+            task.wait(1)
+            continue
+        end
+
+        RT.Request("Loot treasure Chest", 5, function()
+            CU.UseChar(true, function(char)
+                -- root.CFrame = curChest.PrimaryPart.CFrame + Vector3.new(0, 5, 0)
+                char:PivotTo(curChest.PrimaryPart.CFrame + Vector3.new(0, 5, 0))
+                task.wait(.1)
+                curChest.PrimaryPart.Dead.Value = true; -- its dead and i get loot
+                task.wait(1)
+            end)
+        end)
+
+        task.wait()
+    end
+end
+end
+
 __modules["model.Globals"] = function()
 _G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
 _G.Godmode = _G.Godmode or _G.AutoExec or false
 _G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
+_G.AutoCollectEggs = _G.AutoCollectEggs or _G.AutoExec or false
+_G.LootTreasureChests = _G.LootTreasureChests or _G.AutoExec or false
+_G.AutoCollectCoins = _G.AutoCollectCoins or _G.AutoExec or false
+_G.AutoFarmResource = _G.AutoFarmResource or false
 
 -- make sure game is loaded
 if _G.AutoExec then 
@@ -208,7 +478,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local CharUtil = {}
 
-function CharUtil.UseChar(callback)
+function CharUtil.UseChar(usedForTP, callback)
     if not LocalPlayer then
         warn("[CharUtil] LocalPlayer not available.")
         return
@@ -232,7 +502,20 @@ function CharUtil.UseChar(callback)
         return
     end
 
+    if usedForTP then
+        root.Anchored = true
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end
+
     callback(character)
+
+    if usedForTP then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        root.Anchored = false
+
+    end
 end
 
 return CharUtil
@@ -289,7 +572,7 @@ local function safeGet(child, name)
     end
 end
 
-function DragonHandler.FireBreath(dragon, targetMob)
+function DragonHandler.FireBreath(dragon, target, type) -- type "Mobs" or "Destructibles"
     local remotes = safeGet(dragon, "Remotes")
     if not remotes then return end
 
@@ -297,11 +580,11 @@ function DragonHandler.FireBreath(dragon, targetMob)
     if not soundRemote then return end
 
     RemoteMiddleman.RequestFire(soundRemote, false, function()
-        soundRemote:FireServer("Breath", "Mobs", targetMob)
+        soundRemote:FireServer("Breath", type, target)
     end)
 end
 
-function DragonHandler.Bite(dragon, targetMob)
+function DragonHandler.Bite(dragon, target, type)
     local remotes = safeGet(dragon, "Remotes")
     if not remotes then return end
 
@@ -309,7 +592,7 @@ function DragonHandler.Bite(dragon, targetMob)
     if not soundRemote then return end
 
     RemoteMiddleman.RequestFire(soundRemote, false, function()
-        soundRemote:FireServer("Bite", {{"Mobs", targetMob}})
+        soundRemote:FireServer("Bite", {{type, target}})
     end)
 end
 
@@ -450,7 +733,7 @@ local controllerMap = setmetatable({}, { __mode = "k" })
 local function CallController(self, value)
 	local key = controllerMap[self]
 	if not key then
-		warn("[Controller] No controller key bound for:", self.Name)
+		warn("[Controller] No controller key bound for:", self.Label)
 		return
 	end
 	spawn(function()
@@ -485,9 +768,27 @@ return function ()
 
 	bindController(Window:Checkbox({
 		Value = _G.AutomobFarm,
-		Label = "Automob Farm",
+		Label = "Auto mob Farm",
 		Callback = CallController
 	}), "AutomobFarm")
+
+	bindController(Window:Checkbox({
+		Value = _G.AutoCollectEggs,
+		Label = "Auto Collect Eggs",
+		Callback = CallController
+	}), "AutoCollectEggs")
+
+    bindController(Window:Checkbox({
+		Value = _G.LootTreasureChests,
+		Label = "Loot Treasure Chests",
+		Callback = CallController
+	}), "LootTreasureChests")
+
+    bindController(Window:Checkbox({
+		Value = _G.AutoFarmResource,
+		Label = "Auto Farm Resource Nodes",
+		Callback = CallController
+	}), "AutoFarmResource")
 
 	bindController(Window:Checkbox({
 		Value = _G.Godmode,
@@ -497,9 +798,15 @@ return function ()
 
 	bindController(Window:Checkbox({
 		Value = _G.AutosellMobLoot,
-		Label = "Autosell MobLoot",
+		Label = "Auto Sell MobLoot",
 		Callback = CallController
 	}), "AutosellMobLoot")
+
+    bindController(Window:Checkbox({
+		Value = _G.AutoCollectCoins,
+		Label = "Auto Collect Coins",
+		Callback = CallController
+	}), "AutoCollectCoins")
 
     Window:Label({
         Text = ""
@@ -518,19 +825,7 @@ end
 end
 
 -- Entry Point
-local Players = game:GetService("Players")
-while not Players.LocalPlayer do
-    task.wait()
-end
 
--- Init anti afk
-local vu = game:GetService("VirtualUser")
-Players.LocalPlayer.Idled:Connect(function()
-    vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-    task.wait(1)
-    vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-end)
-print("Anti afk on for pc")
 
 -- modules
 local Globals = __require("model.Globals")

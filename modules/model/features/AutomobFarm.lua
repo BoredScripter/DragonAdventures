@@ -7,20 +7,22 @@ return function ()
 
     while _G.AutomobFarm do
         local mob = MH.FindMob()
-        if mob then
-            CU.UseChar(function(char)
-                local root = char.HumanoidRootPart
-
-                RT.Request("TP To Mob and Damage", 1, function()
-                    root.CFrame = mob.CFrame
-                    for _, dragon in pairs(char.Dragons:GetChildren()) do
-                        DH.FireBreath(dragon, mob)
-                        DH.Bite(dragon, mob)
-                    end
-                end)
-            end)
-
+        if not mob then
+            task.wait(1)
+            continue;
         end
+
+
+        RT.Request("TP To Mob and Damage", 1, function()
+            CU.UseChar(true, function(char)
+                char:PivotTo(mob.CFrame)
+                for _, dragon in pairs(char.Dragons:GetChildren()) do
+                    DH.FireBreath(dragon, mob, "Mobs")
+                    DH.Bite(dragon, mob, "Mobs")
+                end
+            end)
+        end)
+        
         task.wait()
     end 
 end

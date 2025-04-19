@@ -10,5 +10,6 @@
         "type-check",
         "type-error",
         "undefined-field"
-    ]
+    ],
+    "Lua.completion.autoRequire": false
 }

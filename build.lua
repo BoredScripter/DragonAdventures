@@ -2,7 +2,7 @@ local module_dir = "modules"
 local entry_point = "main.lua"
 
 -- Output both in Zenith workspace and in root project folder
-local output_file_workspace = "C:/Users/CusFo/AppData/Local/ui/workspace/output.lua"
+local output_file_workspace = "C:/Users/Oskar/AppData/Local/ui/workspace/output.lua"
 local output_file_root = "output.lua"
 
 local lfs = require("lfs") -- LuaFileSystem (or write your own dir reader if you want it pure)

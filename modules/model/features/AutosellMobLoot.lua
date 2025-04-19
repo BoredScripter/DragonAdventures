@@ -8,7 +8,7 @@ local CU = __require('model.utils.CharUtils')
 
 local Client = _G.Client
 
-local sellPart = workspace:WaitForChild("Interactions").GeneralStore.BillboardPart
+local sellPart = workspace:WaitForChild("Interactions").GeneralStore:WaitForChild("BillboardPart")
 
 local function GetAmount(item)
     return Client.PlayerData.Resources[item].Value
@@ -28,12 +28,12 @@ end
 return function ()
     while _G.AutosellMobLoot do
         if shouldSell() then
-            CU.UseChar(function(char)
-                local root = char.HumanoidRootPart
-
-                RT.Request("Sell mob loot", 10, function()
-                    -- Tp char to CFrame.new(1,1,1)
-                    root.CFrame = sellPart.CFrame
+            RT.Request("Sell mob loot", 10, function()
+                -- Tp char to CFrame.new(1,1,1)
+                CU.UseChar(true, function(char)
+                    local root = char.HumanoidRootPart
+                    -- root.CFrame = sellPart.CFrame
+                    char:PivotTo(sellPart.CFrame)
                     task.wait(0.5)
 
                     local remote = game:GetService("ReplicatedStorage"):WaitForChild('Remotes').SellItemRemote
@@ -53,6 +53,8 @@ return function ()
                     task.wait(1)
                 end)
             end)
+
+
         end
         
         task.wait(10)

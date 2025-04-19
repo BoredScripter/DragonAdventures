@@ -1,6 +1,10 @@
 _G.AutomobFarm = _G.AutomobFarm or _G.AutoExec or false
 _G.Godmode = _G.Godmode or _G.AutoExec or false
 _G.AutosellMobLoot = _G.AutosellMobLoot or _G.AutoExec or false
+_G.AutoCollectEggs = _G.AutoCollectEggs or _G.AutoExec or false
+_G.LootTreasureChests = _G.LootTreasureChests or _G.AutoExec or false
+_G.AutoCollectCoins = _G.AutoCollectCoins or _G.AutoExec or false
+_G.AutoFarmResource = _G.AutoFarmResource or false
 
 -- make sure game is loaded
 if _G.AutoExec then 

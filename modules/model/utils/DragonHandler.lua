@@ -16,7 +16,7 @@ local function safeGet(child, name)
     end
 end
 
-function DragonHandler.FireBreath(dragon, targetMob)
+function DragonHandler.FireBreath(dragon, target, type) -- type "Mobs" or "Destructibles"
     local remotes = safeGet(dragon, "Remotes")
     if not remotes then return end
 
@@ -24,11 +24,11 @@ function DragonHandler.FireBreath(dragon, targetMob)
     if not soundRemote then return end
 
     RemoteMiddleman.RequestFire(soundRemote, false, function()
-        soundRemote:FireServer("Breath", "Mobs", targetMob)
+        soundRemote:FireServer("Breath", type, target)
     end)
 end
 
-function DragonHandler.Bite(dragon, targetMob)
+function DragonHandler.Bite(dragon, target, type)
     local remotes = safeGet(dragon, "Remotes")
     if not remotes then return end
 
@@ -36,7 +36,7 @@ function DragonHandler.Bite(dragon, targetMob)
     if not soundRemote then return end
 
     RemoteMiddleman.RequestFire(soundRemote, false, function()
-        soundRemote:FireServer("Bite", {{"Mobs", targetMob}})
+        soundRemote:FireServer("Bite", {{type, target}})
     end)
 end
 
