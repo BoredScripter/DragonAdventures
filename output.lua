@@ -690,6 +690,7 @@ local function CreateTask(name, priority)
     }
 end
 
+local MAX_HISTORY = 100
 function RequestTask.Request(name, priority, callback)
     if not curTask or priority > curTask.priority then
         if curTask then
@@ -706,6 +707,9 @@ function RequestTask.Request(name, priority, callback)
 
             if success and not newTask.abandoned and curTask.id == newTask.id then
                 completedTasks[#completedTasks + 1] = newTask.name
+                if #completedTasks > MAX_HISTORY then
+                    table.remove(completedTasks, 1)
+                end
                 curTask = nil
             elseif not success then
                 warn("[RequestTask] Error in task '" .. newTask.name .. "': " .. err)
