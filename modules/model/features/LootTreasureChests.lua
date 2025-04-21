@@ -29,7 +29,7 @@ return function()
                 char:PivotTo(curChest.PrimaryPart.CFrame + Vector3.new(0, 5, 0))
                 task.wait(.1)
                 curChest.PrimaryPart.Dead.Value = true; -- its dead and i get loot
-                task.wait(1)
+                task.wait(5)
             end)
         end)
 
